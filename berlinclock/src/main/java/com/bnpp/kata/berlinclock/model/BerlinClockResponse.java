@@ -1,7 +1,5 @@
 package com.bnpp.kata.berlinclock.model;
 
-import java.util.List;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -10,5 +8,6 @@ import lombok.Data;
 public class BerlinClockResponse {
 
 	private String digitalTime;
-	private List<String> berlinTime;
+	private DetailedBerlinTime detailedBerlinTime;
+	private String berlinTime;
 }

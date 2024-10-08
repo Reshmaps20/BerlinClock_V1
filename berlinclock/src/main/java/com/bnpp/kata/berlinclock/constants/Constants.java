@@ -1,6 +1,6 @@
 package com.bnpp.kata.berlinclock.constants;
 
-public final class BClockConstants {
+public final class Constants {
 
 	public static final String TIME_SEPARATOR = ":";
 	public static final String TIME_FORMAT = "%02d";

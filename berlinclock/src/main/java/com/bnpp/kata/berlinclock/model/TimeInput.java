@@ -1,8 +1,8 @@
 package com.bnpp.kata.berlinclock.model;
 
-import lombok.Data;
+import lombok.Getter;
 
-@Data
+@Getter
 public class TimeInput {
 
 	 private String hours;
