@@ -1,85 +1,77 @@
 package com.bnpp.kata.berlinclock.service;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
 import com.bnpp.kata.berlinclock.constants.BClockConstants;
-import com.bnpp.kata.berlinclock.exception.TimeFormatException;
 import com.bnpp.kata.berlinclock.model.BerlinClockResponse;
+import com.bnpp.kata.berlinclock.model.TimeInput;
+import com.bnpp.kata.berlinclock.store.Lamp;
+import com.bnpp.kata.berlinclock.store.LampRow;
+import com.bnpp.kata.berlinclock.validation.TimeValidator;
 
 @Service
 public class BerlinClockService {
 
-	public BerlinClockResponse convertToBerlinTime(String time) {
+	private final TimeValidator timeValidator;
 
-		if (time == null || time.isEmpty())
-			throw new TimeFormatException(BClockConstants.TIME_IS_EMPTY_ERROR);
-
-		int[] splitTime = Arrays.asList(time.split(BClockConstants.TIME_SEPARATOR))
-				.stream().mapToInt(Integer::parseInt).toArray();
-
-		validateTime(splitTime);
-		
-		String berlinTime = String.join(" ", getSecondsLamp(splitTime[BClockConstants.SECONDS_INDEX]),
-				getHoursLamp(splitTime[BClockConstants.HOURS_INDEX]),
-				getMinuteLamp(splitTime[BClockConstants.MINUTES_INDEX]));
-
-		return new BerlinClockResponse(time, berlinTime);
+	public BerlinClockService(TimeValidator timeValidator) {
+		this.timeValidator = timeValidator;
 	}
 
-	private void validateTime(int[] splitTime) {
+	public BerlinClockResponse convertToBerlinTime(TimeInput time) {
 
-		if (splitTime.length != BClockConstants.TOTAL_TIME_LENGTH)
-			throw new TimeFormatException(BClockConstants.INVALID_TIME_FORMAT);
+		timeValidator.validateTimeValues(time);
 
-		if (splitTime[BClockConstants.HOURS_INDEX] < BClockConstants.ZERO
-				|| splitTime[BClockConstants.HOURS_INDEX] > BClockConstants.MAX_HOURS)
-			throw new TimeFormatException(BClockConstants.INVALID_HOUR_ERROR);
+		return new BerlinClockResponse(convertToDigitalTime(time), calculateBerlinTime(time));
+	}
 
-		if (splitTime[BClockConstants.MINUTES_INDEX] < BClockConstants.ZERO
-				|| splitTime[BClockConstants.MINUTES_INDEX] > BClockConstants.MAX_MINUTES)
-			throw new TimeFormatException(BClockConstants.INVALID_MINUTE_ERROR);
+	private List<String> calculateBerlinTime(TimeInput time) {
 
-		if (splitTime[BClockConstants.SECONDS_INDEX] < BClockConstants.ZERO
-				|| splitTime[BClockConstants.SECONDS_INDEX] > BClockConstants.MAX_SECONDS)
-			throw new TimeFormatException(BClockConstants.INVALID_SECOND_ERROR);
+		List<String> hourLamps = getHoursLamp(Integer.parseInt(time.getHours()));
+		List<String> minuteLamps = getMinuteLamp(Integer.parseInt(time.getMinutes()));
+
+		return Arrays.asList(getSecondsLamp(Integer.parseInt(time.getSeconds())), hourLamps.get(0), hourLamps.get(1), minuteLamps.get(0),
+				minuteLamps.get(1));
 	}
 
 	private String getSecondsLamp(int seconds) {
-		return (seconds % BClockConstants.SECONDS_DIVIDER == BClockConstants.ZERO) ? BClockConstants.YELLOW : BClockConstants.OFF;
+		return (seconds % BClockConstants.SECONDS_DIVIDER == BClockConstants.ZERO) ? Lamp.YELLOW.getValue() : Lamp.OFF.getValue();
 	}
 
-	private String getHoursLamp(int hours) {
-		return String.join(" ", getTopHourRow(hours / BClockConstants.HOUR_DIVIDER),getBottomHourRow(hours % BClockConstants.HOUR_DIVIDER));
+	private List<String> getHoursLamp(int hours) {
+		return Arrays.asList(
+				getHourLampRow(LampRow.TOP_HOUR_LAMP.getLength(), hours / BClockConstants.HOUR_DIVIDER),
+				getHourLampRow(LampRow.BOTTOM_HOUR_LAMP.getLength(), hours % BClockConstants.HOUR_DIVIDER));
 	}
 
-	private String getBottomHourRow(int bottomHourValue) {
-		return IntStream.range(BClockConstants.ZERO, BClockConstants.HOUR_LAMPS_IN_BOTTOM_ROW)
-				.mapToObj(i -> (i < bottomHourValue) ? BClockConstants.RED : BClockConstants.OFF)
+	private String getHourLampRow(int rowLength, int hourValue) {
+		return IntStream.range(BClockConstants.ZERO, rowLength)
+				.mapToObj(i -> (i < hourValue) ? Lamp.RED.getValue() : Lamp.OFF.getValue())
 				.collect(Collectors.joining());
 	}
 
-	private String getTopHourRow(int topHourValue) {
-		return IntStream.range(BClockConstants.ZERO, BClockConstants.HOUR_LAMPS_IN_TOP_ROW)
-				.mapToObj(i -> (i < topHourValue) ? BClockConstants.RED : BClockConstants.OFF)
+	private List<String> getMinuteLamp(int minutes) {
+		return Arrays.asList(
+				getMinuteLampRow(LampRow.TOP_MINUTE_LAMP.getLength(), minutes / BClockConstants.MINUTES_DIVIDER, true),
+				getMinuteLampRow(LampRow.BOTTOM_MINUTE_LAMP.getLength(), minutes % BClockConstants.MINUTES_DIVIDER,
+						false));
+	}
+
+	private String getMinuteLampRow(int rowLength, int minuteValue, boolean isTopRow) {
+		String mintLamps = IntStream.range(BClockConstants.ZERO, rowLength)
+				.mapToObj(i -> (i < minuteValue) ? Lamp.YELLOW.getValue() : Lamp.OFF.getValue())
 				.collect(Collectors.joining());
+
+		return isTopRow ? mintLamps.replace(BClockConstants.REPLACE_YYY, BClockConstants.REPLACE_TO_YYR) : mintLamps;
 	}
 
-	private String getMinuteLamp(int minutes) {
-		return String.join(" ", getTopMinuteRow(minutes / BClockConstants.MINUTES_DIVIDER),getBottomMinuteRow(minutes % BClockConstants.MINUTES_DIVIDER));
-	}
-
-	private String getTopMinuteRow(int topMinuteValue) {
-		return IntStream.range(BClockConstants.ZERO, BClockConstants.MINUTES_LAMPS_IN_TOP_ROW)
-				.mapToObj(i -> (i < topMinuteValue) ? BClockConstants.YELLOW : BClockConstants.OFF)
-				.collect(Collectors.joining()).replace(BClockConstants.REPLACE_YYY, BClockConstants.REPLACE_TO_YYR);
-	}
-
-	private String getBottomMinuteRow(int bottomMinuteValue) {
-		return IntStream.range(BClockConstants.ZERO, BClockConstants.MINUTES_LAMPS_IN_BOTTOM_ROW)
-				.mapToObj(i -> (i < bottomMinuteValue) ? BClockConstants.YELLOW : BClockConstants.OFF)
-				.collect(Collectors.joining());
+	public String convertToDigitalTime(TimeInput time) {
+		return Arrays.stream(new int[] { Integer.parseInt(time.getHours()), Integer.parseInt(time.getMinutes()), Integer.parseInt(time.getSeconds()) })
+				.mapToObj(i -> String.format(BClockConstants.TIME_FORMAT, i))
+				.collect(Collectors.joining(BClockConstants.TIME_SEPARATOR));
 	}
 
 }
